@@ -10,7 +10,7 @@ const DB_CONFIG = {
     host: process.env.DB_HOST || 'tidb', // Corresponds to docker service name
     user: 'root',
     password: '',
-    database: 'test', // TiDB default db
+    database: 'exam_db', //Default TiDB database we created in init.sql
     port: 4000
 };
 
