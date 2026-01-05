@@ -8,4 +8,4 @@ WORKDIR /app
 COPY --from=builder /app/node_modules ./node_modules
 COPY . .
 USER node
-CMD ["node", "start"]
+CMD ["npm", "start"]
