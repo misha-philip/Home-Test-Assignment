@@ -4,6 +4,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const log4js = require('log4js');
 const { v4: uuidv4 } = require('uuid');
+const { Kafka } = require('kafkajs');
 
 const PORT = 5000;
 const DB_CONFIG = {
@@ -13,6 +14,23 @@ const DB_CONFIG = {
     database: 'exam_db', //Default TiDB database we created in init.sql
     port: 4000
 };
+
+const kafka = new Kafka({
+    clientId: 'auth-service',
+    brokers: ['kafka:9092'] //Connect to the docker service 'kafka at 9092' from docker-compose
+});
+const producer = kafka.producer();
+async function connectKafka() {
+    try {
+        await producer.connect();
+        console.log('Connected to Kafka successfully');
+    } catch (err) {
+        console.error('Kafka Connection failed, retrying...', err);
+        setTimeout(connectKafka, 5000);
+    }
+}
+connectKafka();
+
 
 log4js.configure({
     appenders: { 
@@ -77,7 +95,22 @@ app.post('/api/login', async (req, res) => {
         );
 
         //Log Activity
-        logActivity(user.id, 'USER_LOGIN', req);
+        const logEvent = {
+            timestamp: new Date().toISOString(), //Stamp the current time
+            user_id: user.id,
+            action: 'USER_LOGIN',
+            ip_address: req.ip || req.connection.remoteAddress //Get IP from request
+        };
+
+        //We send it to a topic called 'user-activity'
+        await producer.send({
+            topic: 'user-activity', //Need to create this topic in Kafka server
+            messages: [
+                { value: JSON.stringify(logEvent) }
+            ],
+        });
+        
+        console.log("Kafka Event Sent:", JSON.stringify(logEvent));
 
         res.json({ token, username: user.username });
 
