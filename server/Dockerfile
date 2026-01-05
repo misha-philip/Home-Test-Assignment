@@ -1,10 +1,11 @@
-FROM node:25-alpine3.22 as builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+RUN npm ci --only=production
 
-FROM node:25-alpine3.22 
+FROM node:22-alpine AS runner
 WORKDIR /app
-COPY --from=builder /app .
+COPY --from=builder /app/node_modules ./node_modules
 COPY . .
-CMD ["npm", "start"] 
+USER node
+CMD ["node", "start"]
