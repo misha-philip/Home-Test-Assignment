@@ -20,20 +20,3 @@ This project creates the entire infrastructure (Database Cluster, Kafka, APIs) a
    ├── consumer/ # SRE Logging Service (Node.js)
    └── database/
    └── init.sql # Database Schema & Seeds
-
----
-
-### **Congratulations! 🎓**
-
-You have built a system that touches on:
-
-1.  **Frontend/Backend** integration.
-2.  **Distributed Databases** (TiDB Cluster).
-3.  **Event Streaming** (Kafka).
-4.  **Real-time Replication** (CDC).
-5.  **Container Orchestration** (Docker Compose with health checks and init containers).
-
-This is a very strong submission.
-
-**One final tip before you submit:**
-Do a final `docker compose down -v` and `docker compose up --build` one last time to be 100% sure everything works cleanly from a fresh start.
