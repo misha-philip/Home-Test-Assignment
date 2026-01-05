@@ -1,14 +1,38 @@
 services:
+  pd:
+    image: pingcap/pd:v6.1.0
+    ports:
+      - "2379:2379"
+    command:
+      - --name=pd
+      - --client-urls=http://0.0.0.0:2379 #Listen on all interfaces
+      - --advertise-client-urls=http://pd:2379 #Advertise using service name
+      - --peer-urls=http://0.0.0.0:2380         #Listen on all interfaces
+      - --advertise-peer-urls=http://pd:2380 #Advertise using service name
+      - --data-dir=/data/pd
+      - --initial-cluster=pd=http://pd:2380 #Initial cluster configuration
+
+  tikv:
+    image: pingcap/tikv:v6.1.0
+    depends_on:
+      - pd
+    command:
+      - --addr=0.0.0.0:20160 #Listen on all interfaces
+      - --advertise-addr=tikv:20160 #Advertise using service name
+      - --pd=pd:2379 #PD service address
+      - --data-dir=/data/tikv
+
   tidb:
     image: pingcap/tidb:v6.1.0
     ports:
       - "4000:4000"
       - "10080:10080"
-    volumes:
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    depends_on:
+      - pd
+      - tikv
     command:
-      - "-store=mocktikv"
-      - "-path=/tmp/tidb"
+      - --store=tikv # Use TiKV as the storage engine
+      - --path=pd:2379 # PD service address
 
   tidb-init:
     image: mysql:8.0-debian
@@ -20,31 +44,11 @@ services:
       - "bash"
       - "-c"
       - |
-        echo "Waiting for TiDB to be ready..."
-        # Loop until we can connect to TiDB
-        until mysql -h tidb -P 4000 -u root -e 'SELECT 1'; do 
-          sleep 2
-        done
-        echo "TiDB is up! Running initialization script..."
-        # Run the SQL file
+        echo "Waiting for TiDB..."
+        until mysql -h tidb -P 4000 -u root -e 'SELECT 1'; do sleep 2; done
+        echo "Running SQL Init..."
         mysql -h tidb -P 4000 -u root < /init.sql
-        echo "Database initialized successfully."
-    
-  server:
-    build: ./server
-    ports:
-      - "5000:5000"
-    depends_on:
-      - tidb
-    environment:
-      - DB_HOST=tidb
-    
-  client:
-    build: ./client
-    ports:
-      - "3000:3000"
-    stdin_open: true 
-    tty: true
+        echo "Done."
 
   kafka:
     image: apache/kafka:3.7.0
@@ -68,3 +72,58 @@ services:
       interval: 5s
       timeout: 10s
       retries: 5
+
+  ticdc:
+    image: pingcap/ticdc:v6.1.0
+    depends_on:
+      - pd
+      - kafka
+    command:
+      - /cdc
+      - server
+      - --pd=http://pd:2379
+      - --addr=0.0.0.0:8300
+      - --advertise-addr=ticdc:8300
+
+  cdc-job-creator: #This container runs once to tell CDC: "Send 'exam_db' changes to Kafka"
+    image: pingcap/ticdc:v6.1.0
+    depends_on:
+      - ticdc
+      - kafka
+      - tidb-init # Wait for DB to exist first!
+    entrypoint:
+      - "sh"
+      - "-c"
+      - |
+        echo "Waiting for TiCDC server..."
+        sleep 10
+        echo "Creating Changefeed..."
+        # Create a feed that watches 'exam_db' and sends to kafka://kafka:9092/
+        cdc cli changefeed create --pd=http://pd:2379 \
+          --sink-uri="kafka://kafka:9092/db-changes?protocol=open-protocol" \
+          --changefeed-id="exam-feed"
+        echo "CDC Feed Created!"
+  
+  server:
+    build: ./server
+    ports:
+      - "5000:5000"
+    depends_on:
+      - tidb
+    environment:
+      - DB_HOST=tidb
+    
+  client:
+    build: ./client
+    ports:
+      - "3000:3000"
+    stdin_open: true 
+    tty: true
+
+
+
+  consumer:
+    build: ./consumer
+    depends_on:
+      - kafka
+    restart:  on-failure
