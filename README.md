@@ -9,8 +9,8 @@ A fully Dockerized microservices demo implementing a data pipeline:
 1. Clone the repository and change directory:
 
 ```bash
-git clone <your-repo-url>
-cd <your-folder>
+git clone https://github.com/misha-philip/Home-Test-Assignment.git
+cd Home-Test-Assignment
 ```
 
 2. Start the full environment (build images and start services):
