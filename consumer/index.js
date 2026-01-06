@@ -45,6 +45,11 @@ const run = async () => {
                     //Handle Database Changes (CDC)
                     // TiCDC Open Protocol sends complex JSON. We log it to prove it works.
                     console.log(`[DB CHANGE DETECTED]:`, rawValue); 
+                    // const change = JSON.parse(rawValue); //Uncomment to remove [DB CHANGE DETECTED] and comment : "console.log(`[DB CHANGE DETECTED]:`, rawValue);"
+                    // // Only log if it's OUR table
+                    // if (change.database === 'exam_db' && change.table === 'users') {
+                    //     console.log(`[REAL USER CHANGE]:`, rawValue);
+                    // }
                 }
             },
         });
@@ -54,5 +59,6 @@ const run = async () => {
         setTimeout(run, 5000);
     }
 };
+
 
 run();
