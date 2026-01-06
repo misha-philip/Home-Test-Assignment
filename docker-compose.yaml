@@ -99,7 +99,7 @@ services:
         sleep 10
         echo "Creating Changefeed..."
         # Create a feed that watches 'exam_db' and sends to kafka://kafka:9092/
-        cdc cli changefeed create --pd=http://pd:2379 \
+        /cdc cli changefeed create --pd=http://pd:2379 \
           --sink-uri="kafka://kafka:9092/db-changes?protocol=open-protocol" \
           --changefeed-id="exam-feed"
         echo "CDC Feed Created!"
@@ -126,4 +126,5 @@ services:
     build: ./consumer
     depends_on:
       - kafka
+
     restart:  on-failure
